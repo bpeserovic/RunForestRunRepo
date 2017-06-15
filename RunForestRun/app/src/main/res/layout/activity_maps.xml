@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:map="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:context=".MapActivity"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+
+    <fragment
+        android:id="@+id/mGoogleMap"
+        android:name="com.google.android.gms.maps.SupportMapFragment"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginBottom="100dp"
+        android:layout_alignParentTop="true"/>
+
+    <TextView
+        android:id="@+id/mTime"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textSize="50dp"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentLeft="true"/>
+
+    <Button
+        android:id="@+id/mStartButton"
+        android:layout_width="150dp"
+        android:layout_height="50dp"
+        android:text=""
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentRight="true"
+        android:layout_marginRight="0dp"
+        android:layout_marginBottom="0dp"/>
+
+    <Button
+        android:id="@+id/mResetRouteButton"
+        android:layout_width="150dp"
+        android:layout_height="50dp"
+        android:layout_above="@id/mStartButton"
+        android:layout_alignParentRight="true"
+        android:text="RESET ROUTE" />
+
+</RelativeLayout>
