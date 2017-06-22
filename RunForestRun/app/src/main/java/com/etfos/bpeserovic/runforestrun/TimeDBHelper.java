@@ -23,8 +23,18 @@ public class TimeDBHelper extends SQLiteOpenHelper {
     private static final String KEY_ID = "_id";
     private static final String KEY_TIME = "time";
 
-    public TimeDBHelper(Context context, String name, SQLiteDatabase.CursorFactory factory, int version){
-        super(context, DATABASE_NAME, null, DATABASE_VERSION);
+    //singleton
+    private static TimeDBHelper dbHelper = null;
+
+    public TimeDBHelper(Context context){
+        super(context.getApplicationContext(), DATABASE_NAME, null, DATABASE_VERSION);
+    }
+
+    public static synchronized TimeDBHelper getInstance(Context context){
+        if(dbHelper == null){
+            dbHelper = new TimeDBHelper(context);
+        }
+        return dbHelper;
     }
 
     SQLiteDatabase db;
@@ -36,8 +46,8 @@ public class TimeDBHelper extends SQLiteOpenHelper {
     @Override
     public void onCreate(SQLiteDatabase db) {
         //String CREATE_TIMES_TABLE = "CREATE TABLE " + TABLE_TIMES + "(" + KEY_ID + " INTEGER PRIMARY KEY, " + KEY_TIME + "text " + ")";
-        Log.d("aaaaaaaaaaaaaaaaaaaaaa","aaaaaaaaaaaaaaaaaa");
-        db.execSQL("CREATE TABLE " + TABLE_TIMES + "(" + KEY_ID + " INTEGER PRIMARY KEY, " + KEY_TIME + "text " + ")");
+        Log.d("BORIS","onCreate TimeDBHelper");
+        db.execSQL("CREATE TABLE " + TABLE_TIMES + "(" + KEY_ID + " INTEGER PRIMARY KEY, " + KEY_TIME + " text " + ")"); //PAZI NA RAZMAKEEEEEEEEEEEEEEEEE
         //db.execSQL("create table contacts " + "(id integer primary key, name text,phone text,email text, street text,place text)
     }
 
@@ -46,7 +56,7 @@ public class TimeDBHelper extends SQLiteOpenHelper {
     }
 
     public void addTime(Times time){
-        Log.d("cccccc","cccccc");
+        Log.d("BORIS","add time TimeDBHelper");
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put(KEY_TIME, time.getTime());

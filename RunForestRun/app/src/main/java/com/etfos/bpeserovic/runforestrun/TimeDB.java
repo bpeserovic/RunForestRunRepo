@@ -28,12 +28,13 @@ public class TimeDB extends Activity implements AdapterView.OnItemLongClickListe
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_database);
-//        dbHelper = new TimeDBHelper(this);
+        dbHelper = new TimeDBHelper(this);
         MainActivity.dbHelper = dbHelper;
         lvTimes = (ListView) findViewById(R.id.lvTimes);
-        Log.d("bbbbbbbbbbbbbbbbbbbbb","bbbbbbbbbbbbbbbbbbbbbbbb");
+        Log.d("BORIS","onCreate TimeDB");
         if (dbHelper != null)
         {
+            Log.d("BORIS", "onCreate TimeDB, dbHelper != null");
             myTimes = dbHelper.getTimes();
             myAdapter = new ArrayAdapter<Times>(this, android.R.layout.simple_list_item_1, myTimes);
             lvTimes.setAdapter(myAdapter);
@@ -41,7 +42,7 @@ public class TimeDB extends Activity implements AdapterView.OnItemLongClickListe
         }
         else
         {
-            Log.d("ddddddddddddd", "dddddddddddddddd");
+            Log.d("BORIS", "onCreate TimeDB, dbHelper == null");
         }
     }
 

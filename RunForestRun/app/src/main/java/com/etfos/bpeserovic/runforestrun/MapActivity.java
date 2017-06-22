@@ -1,7 +1,11 @@
 package com.etfos.bpeserovic.runforestrun;
 
+import android.app.Dialog;
+import android.app.PendingIntent;
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.Path;
@@ -13,10 +17,12 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.FragmentActivity;
+import android.text.Editable;
 import android.util.Log;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.TextView;
 
@@ -26,9 +32,13 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.sql.Time;
+import java.text.DecimalFormat;
+import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.maps.CameraUpdateFactory;
@@ -50,6 +60,11 @@ import org.json.JSONObject;
  */
 
 public class MapActivity extends FragmentActivity implements OnMapReadyCallback {
+
+    NumberFormat nf = NumberFormat.getNumberInstance(Locale.GERMAN);
+    DecimalFormat df = (DecimalFormat)nf;
+
+    private static final String PROX_ALERT_INTENT = "com.etfos.bpeserovic.runforestrun.ProximityAlert";
     ArrayList markerPoints = new ArrayList();
     private GoogleMap mMap;
 
@@ -101,6 +116,20 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback 
 //        getActivity().getSystemService(Service.LOCATION_SERVICE);
         provider = myLocationManager.getBestProvider(criteria, true);
 
+        if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            // TODO: Consider calling
+            //    ActivityCompat#requestPermissions
+            // here to request the missing permissions, and then overriding
+            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+            //                                          int[] grantResults)
+            // to handle the case where the user grants the permission. See the documentation
+            // for ActivityCompat#requestPermissions for more details.
+            return;
+        }
+
+        //TODO request location updates (možda ne budem koristio)
+//        myLocationManager.requestLocationUpdates(provider, 1000, 1, new myLocationManager());
+
         //threads
 //        workOnBack();
 
@@ -121,26 +150,13 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback 
                 Button bStart = (Button) v;
                 if (bStart.getText().equals("STOP")) {
                     myTime = mTime.getText().toString();
-                    Log.d("BOBO myTime: ", myTime);
+                    Log.d("BORIS myTime: ", myTime);
 
                     Times t = new Times(myTime);
-                    if(MainActivity.dbHelper != null)
-                    MainActivity.dbHelper.addTime(t);
+                    if (MainActivity.dbHelper != null)
+                        MainActivity.dbHelper.addTime(t);
 //                    timeDb.myAdapter.clear();
 //                    timeDb.myAdapter.addAll(timeDb.dbHelper.getTimes());
-//                    timeDb.myAdapter.notifyDataSetChanged();
-
-
-//                    //dodaje vrijeme u db na stop
-//                    Times t = new Times(myTime);
-//                    Log.d("BOBO t: ", t.toString());
-////                    timeDb.myTimes = timeDb.dbHelper.getTimes();
-////                    timeDb.myAdapter = new ArrayAdapter<Times>(getApplicationContext(), android.R.layout.simple_list_item_1, timeDb.myTimes);
-//                    timeDb.dbHelper.addTime(t);
-//                    Log.d("BOBOOOOO t: ", t.toString());
-//                    timeDb.myAdapter.clear();
-//                    timeDb.myAdapter.addAll(timeDb.dbHelper.getTimes());
-////                    timeDb.lvTimes.setAdapter(timeDb.myAdapter);
 //                    timeDb.myAdapter.notifyDataSetChanged();
 
                     timerHandler.removeCallbacks(timerRunnable);
@@ -191,22 +207,49 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback 
 //        }
 //    }
 
-    LocationListener mLocationListener = new LocationListener() {
+    //// TODO: location listener android 
+//    public class myLocationListener implements android.location.LocationListener{
+//
+//        @Override
+//        public void onLocationChanged(Location location) {
+//            Location location = new Location("POINT_LOCATION");
+//            return location;
+//        }
+//
+//        @Override
+//        public void onStatusChanged(String provider, int status, Bundle extras) {
+//
+//        }
+//
+//        @Override
+//        public void onProviderEnabled(String provider) {
+//
+//        }
+//
+//        @Override
+//        public void onProviderDisabled(String provider) {
+//
+//        }
+//    }
 
-        @Override
-        public void onLocationChanged(Location location) {
-            onChange(location);
-        }
-    };
+    //// TODO: Location listener google maps
 
-    public void onChange(Location location) {
-        String latlongString = "No location available";
-        if (location != null) {
-            latlongString = "Lat:" + location.getLatitude() + "\nLon:"
-                    + location.getLongitude();
-        }
-        //tvLocation.setText(latlongString);
-    }
+//    LocationListener mLocationListener = new LocationListener() {
+//
+//        @Override
+//        public void onLocationChanged(Location location) {
+//            onChange(location);
+//        }
+//    };
+//
+//    public void onChange(Location location) {
+//        String latlongString = "No location available";
+//        if (location != null) {
+//            latlongString = "Lat:" + location.getLatitude() + "\nLon:"
+//                    + location.getLongitude();
+//        }
+//        //tvLocation.setText(latlongString);
+//    }
 
     @Override
     public void onMapReady(GoogleMap googleMap) {
@@ -221,28 +264,67 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback 
         //mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Sydney"));
 //        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(sydney, 16));
 
+        final Context context = this;
+
+
+        //klikanje po mapi
+
         mMap.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
             @Override
             public void onMapClick(LatLng latLng) {
 
+                Log.d("BORIS latLng: ", latLng.toString());
 
                 // Adding new item to the ArrayList
                 markerPoints.add(latLng);
 
                 // Creating MarkerOptions
-                MarkerOptions options = new MarkerOptions();
+                final MarkerOptions options = new MarkerOptions();
 
                 // Setting the position of the marker
                 options.position(latLng);
+
 
                 if (markerPoints.size() == 1) {
                     options.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN));
                 } else if (markerPoints.size() == 2) {
                     options.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED));
+                } else if (markerPoints.size() > 2) {
+                    options.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE));
+//                    options.title("Places of interest");
+
+                    String[] latLngString = latLng.toString().replace("lat/lng: ", "").replace("(", "").replace(")", "").split(",");
+                    Log.d("BORIS latlngstring: ", latLngString.toString());
+                    double latitude = Double.parseDouble(latLngString[0]);
+                    double longitude = Double.parseDouble(latLngString[1]);
+
+                    addProximityAlert(latitude, longitude);
+
+                    //dialog stuff
+                    final Dialog dialog = new Dialog(context);
+                    dialog.setContentView(R.layout.dialog_location);
+                    dialog.setTitle("Place of Interest");
+
+                    TextView dialogTextView = (TextView) dialog.findViewById(R.id.dialogTextView);
+                    dialogTextView.setText("Enter place name:");
+                    final EditText dialogEditText = (EditText) dialog.findViewById(R.id.dialogEditText);
+                    dialogEditText.setEditableFactory(Editable.Factory.getInstance());
+
+                    Button dialogOKButton = (Button) dialog.findViewById(R.id.dialogOKButton);
+                    dialogOKButton.setOnClickListener(new View.OnClickListener() {
+                        @Override
+                        public void onClick(View v) {
+                            dialog.dismiss();
+                            options.title(String.valueOf(dialogEditText)); //// TODO: 20.6.2017. ovaj dio ne radi kak treba, ne prikazuje tekst kako treba
+//                            options.snippet(dialogEditText.getText().toString());
+                        }
+                    });
+                    dialog.show();
+//                    options.title(dialogEditText.getText().toString());
                 }
 
                 // Add new marker to the Google Map Android API V2
-                mMap.addMarker(options);
+                mMap.addMarker(options).showInfoWindow();
 
                 // Checks, whether start and end locations are captured
                 if (markerPoints.size() >= 2) {
@@ -257,7 +339,31 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback 
                     // Start downloading json data from Google Directions API
                     downloadTask.execute(url);
                 }
+            }
 
+            private void addProximityAlert(double latitude, double longitude) {
+                Intent intent = new Intent(PROX_ALERT_INTENT);
+                PendingIntent proximityIntent = PendingIntent.getBroadcast(getApplicationContext(), 0, intent, 0);
+
+                if (ActivityCompat.checkSelfPermission(getApplicationContext(), android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(getApplicationContext(), android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                    // TODO: Consider calling
+                    //    ActivityCompat#requestPermissions
+                    // here to request the missing permissions, and then overriding
+                    //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                    //                                          int[] grantResults)
+                    // to handle the case where the user grants the permission. See the documentation
+                    // for ActivityCompat#requestPermissions for more details.
+                    return;
+                }
+                myLocationManager.addProximityAlert(
+                        latitude,
+                        longitude,
+                        50, //radius u metrima
+                        1000, //vrijeme za proxyalert u milisec
+                        proximityIntent
+                );
+                IntentFilter filter = new IntentFilter(PROX_ALERT_INTENT);
+                registerReceiver(new ProximityIntentReceiver(), filter);
             }
         });
 
