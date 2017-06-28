@@ -61,8 +61,8 @@ import org.json.JSONObject;
 
 public class MapActivity extends FragmentActivity implements OnMapReadyCallback {
 
-    NumberFormat nf = NumberFormat.getNumberInstance(Locale.GERMAN);
-    DecimalFormat df = (DecimalFormat)nf;
+//    NumberFormat nf = NumberFormat.getNumberInstance(Locale.GERMAN);
+//    DecimalFormat df = (DecimalFormat)nf;
 
     private static final String PROX_ALERT_INTENT = "com.etfos.bpeserovic.runforestrun.ProximityAlert";
     ArrayList markerPoints = new ArrayList();
@@ -75,6 +75,10 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback 
 //    TimeDB timeDb = new TimeDB();
     //public TimeDBHelper dbHelper = new TimeDBHelper(this);
 //    ArrayAdapter<Times> arrayAdapterMap = new ArrayAdapter<Times>(timeDb, android.R.layout.simple_list_item_1);
+
+    //opis za marker
+    public String dialogTitleText;
+    public boolean isOkPressed = false;
 
     //Timer
     TextView mTime;
@@ -130,16 +134,11 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback 
         //TODO request location updates (možda ne budem koristio)
 //        myLocationManager.requestLocationUpdates(provider, 1000, 1, new myLocationManager());
 
-        //threads
-//        workOnBack();
+
 
         //timer stuff
         mTime = (TextView) findViewById(R.id.mTime);
         mTime.setText("0:00:00");
-
-        //database
-//        timeDb.myTimes = timeDb.dbHelper.getTimes();
-//        timeDb.myAdapter = new ArrayAdapter<Times>(getApplicationContext(), android.R.layout.simple_list_item_1, timeDb.myTimes);
 
         final Button bStart = (Button) findViewById(R.id.mStartButton);
         bStart.setText("START");
@@ -155,9 +154,6 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback 
                     Times t = new Times(myTime);
                     if (MainActivity.dbHelper != null)
                         MainActivity.dbHelper.addTime(t);
-//                    timeDb.myAdapter.clear();
-//                    timeDb.myAdapter.addAll(timeDb.dbHelper.getTimes());
-//                    timeDb.myAdapter.notifyDataSetChanged();
 
                     timerHandler.removeCallbacks(timerRunnable);
                     bStart.setText("START");
@@ -189,23 +185,6 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback 
     }
 
 
-//    public void workOnBack(){
-//        DBThread dbThread = new DBThread();
-//        dbThread.start();
-//    }
-//
-//    private class DBThread extends Thread implements Runnable{
-//
-//        @Override
-//        public void run() {
-//            Times t = new Times(1, "MEMES");
-//            timeDb.dbHelper.addTime(t);
-//            Log.d("BOBOOOOO t: ", t.toString());
-//            timeDb.myAdapter.clear();
-//            timeDb.myAdapter.addAll(timeDb.dbHelper.getTimes());
-//            timeDb.myAdapter.notifyDataSetChanged();
-//        }
-//    }
 
     //// TODO: location listener android 
 //    public class myLocationListener implements android.location.LocationListener{
@@ -267,6 +246,7 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback 
         final Context context = this;
 
 
+
         //klikanje po mapi
 
         mMap.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
@@ -287,8 +267,10 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback 
 
                 if (markerPoints.size() == 1) {
                     options.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN));
+                    mMap.addMarker(options);
                 } else if (markerPoints.size() == 2) {
                     options.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED));
+                    mMap.addMarker(options);
                 } else if (markerPoints.size() > 2) {
                     options.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE));
 //                    options.title("Places of interest");
@@ -315,16 +297,12 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback 
                         @Override
                         public void onClick(View v) {
                             dialog.dismiss();
-                            options.title(String.valueOf(dialogEditText)); //// TODO: 20.6.2017. ovaj dio ne radi kak treba, ne prikazuje tekst kako treba
-//                            options.snippet(dialogEditText.getText().toString());
+                            dialogTitleText = dialogEditText.getText().toString();
+                            mMap.addMarker(options).setTitle(dialogTitleText);
                         }
                     });
                     dialog.show();
-//                    options.title(dialogEditText.getText().toString());
                 }
-
-                // Add new marker to the Google Map Android API V2
-                mMap.addMarker(options).showInfoWindow();
 
                 // Checks, whether start and end locations are captured
                 if (markerPoints.size() >= 2) {

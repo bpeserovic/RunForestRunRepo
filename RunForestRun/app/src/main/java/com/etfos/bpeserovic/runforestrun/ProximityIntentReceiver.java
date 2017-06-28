@@ -41,7 +41,7 @@ public class ProximityIntentReceiver extends BroadcastReceiver {
         notificationBuilder.setAutoCancel(true)
                 .setContentTitle("Alert")
                 .setContentText("Near your point of interest!")
-                .setSmallIcon(android.R.drawable.ic_dialog_email)
+                .setSmallIcon(android.R.drawable.ic_dialog_alert)
                 .setContentIntent(notificationPendingIntent)
                 .setLights(Color.BLUE, 2000, 1000)
                 .setVibrate(new long[]{1000,1000,1000,1000,1000})

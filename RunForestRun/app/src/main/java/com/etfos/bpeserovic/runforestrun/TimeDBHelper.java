@@ -66,7 +66,6 @@ public class TimeDBHelper extends SQLiteOpenHelper {
 
     public ArrayList<Times> getTimes(){
         ArrayList<Times> times = new ArrayList<Times>();
-        if (times.size() != 0) {
             SQLiteDatabase db = this.getReadableDatabase();
             Cursor cursor = db.query(TABLE_TIMES, null, null, null, null, null, null);
             if (cursor.moveToFirst()) {
@@ -78,7 +77,6 @@ public class TimeDBHelper extends SQLiteOpenHelper {
             }
             db.close();
             cursor.close();
-        }
         return times;
     }
 
