@@ -1,3 +1,19 @@
 <resources>
     <string name="app_name">RunForestRun</string>
+    <!-- Main Activity -->
+    <string name="map_activity">START RUNNING</string>
+    <string name="times_activity">MY TIMES</string>
+    <!-- Maps Activity -->
+    <string name="bStart">START</string>
+    <string name="bStartStop">STOP</string>
+    <string name="bResetRoute">RESET ROUTE</string>
+    <string name="bDrawRoute">DRAW ROUTE</string>
+    <string name="bAddPoi">ADD PLACES</string>
+    <string name="bAddPoiStop">STOP ADDING</string>
+    <string name="dialogTitle">Place of Interest</string>
+    <string name="dialogText">Enter place name: </string>
+    <!-- Proximity Intent Reciever -->
+    <string name="alertTitle">Attention</string>
+    <string name="alertText">Near your place of interest!</string>
+
 </resources>

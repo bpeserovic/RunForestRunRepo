@@ -7,6 +7,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.content.res.Resources;
 import android.graphics.Color;
 import android.graphics.Path;
 import android.location.Criteria;
@@ -65,7 +66,11 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback 
 //    DecimalFormat df = (DecimalFormat)nf;
 
     private static final String PROX_ALERT_INTENT = "com.etfos.bpeserovic.runforestrun.ProximityAlert";
+    public static String alertTitle;
+    public static String alertText;
+
     ArrayList markerPoints = new ArrayList();
+    ArrayList POImarkers = new ArrayList();
     private GoogleMap mMap;
 
     LocationManager myLocationManager;
@@ -78,7 +83,10 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback 
 
     //opis za marker
     public String dialogTitleText;
-    public boolean isOkPressed = false;
+
+    //provjerava je li user dodaje poi markere
+    public boolean isPOIMarker = false;
+    Button bAddPOI;
 
     //Timer
     TextView mTime;
@@ -113,6 +121,17 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback 
                 .findFragmentById(R.id.mGoogleMap);
         mapFragment.getMapAsync(this);
 
+        //button za kontrolu koje markere dodajem
+//        bAddPOI.findViewById(R.id.mAddPOI);
+        final Button bAddPOI = (Button) findViewById(R.id.mAddPOI);
+        bAddPOI.setText(getString(R.string.bAddPoi));
+
+        //alert stuff
+        Context alertContext = getApplicationContext();
+        Resources res = alertContext.getResources();
+        alertTitle = res.getString(R.string.alertTitle);
+        alertText = res.getString(R.string.alertText);
+
         //location stuff
         criteria = new Criteria();
         criteria.setAccuracy(Criteria.ACCURACY_FINE);
@@ -141,13 +160,13 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback 
         mTime.setText("0:00:00");
 
         final Button bStart = (Button) findViewById(R.id.mStartButton);
-        bStart.setText("START");
+        bStart.setText(getString(R.string.bStart));
         bStart.setOnClickListener(new View.OnClickListener() {
 
             @Override
             public void onClick(View v) {
                 Button bStart = (Button) v;
-                if (bStart.getText().equals("STOP")) {
+                if (bStart.getText().equals(getString(R.string.bStartStop))) {
                     myTime = mTime.getText().toString();
                     Log.d("BORIS myTime: ", myTime);
 
@@ -156,22 +175,26 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback 
                         MainActivity.dbHelper.addTime(t);
 
                     timerHandler.removeCallbacks(timerRunnable);
-                    bStart.setText("START");
-                } else {
+                    bStart.setText(getString(R.string.bStart));
+                }
+                else {
                     startTime = System.currentTimeMillis();
                     timerHandler.postDelayed(timerRunnable, 0);
-                    bStart.setText("STOP");
+                    bStart.setText(getString(R.string.bStartStop));
                 }
             }
         });
 
-        //clear points and route on button
+        //clear points on map and array list
         Button bReset = (Button) findViewById(R.id.mResetRouteButton);
         bReset.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 markerPoints.clear();
                 mMap.clear();
+                isPOIMarker = false;
+                POImarkers.clear();
+                bAddPOI.setText(getString(R.string.bAddPoi));
             }
         });
     }
@@ -181,7 +204,7 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback 
         super.onPause();
         timerHandler.removeCallbacks(timerRunnable);
         Button bStart = (Button) findViewById(R.id.mStartButton);
-        bStart.setText("START");
+        bStart.setText(getString(R.string.bStart));
     }
 
 
@@ -239,41 +262,106 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback 
         uisettings.setZoomGesturesEnabled(true);
         uisettings.setCompassEnabled(true);
         uisettings.setScrollGesturesEnabled(true);
-//        LatLng sydney = new LatLng(-34, 151);
-        //mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Sydney"));
-//        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(sydney, 16));
+
+        //buttons
+        final Button bDrawRoute = (Button) findViewById(R.id.mDrawRoute);
+        final Button bAddPOI = (Button) findViewById(R.id.mAddPOI);
+        bAddPOI.setText(getString(R.string.bAddPoi));
 
         final Context context = this;
 
-
-
         //klikanje po mapi
-
         mMap.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
             @Override
             public void onMapClick(LatLng latLng) {
 
                 Log.d("BORIS latLng: ", latLng.toString());
 
+//                // Already 10 locations with 8 waypoints and 1 start location and 1 end location.
+//                // Upto 8 waypoints are allowed in a query for non-business users
+//                if(markerPoints.size()>=10) {
+//                    return;
+//                }
+
                 // Adding new item to the ArrayList
-                markerPoints.add(latLng);
+                //dodavanje route markera
+                if(isPOIMarker == false) {
 
-                // Creating MarkerOptions
-                final MarkerOptions options = new MarkerOptions();
+                    markerPoints.add(latLng);
+                    // Creating MarkerOptions
+                    final MarkerOptions options = new MarkerOptions();
 
-                // Setting the position of the marker
-                options.position(latLng);
+                    // Setting the position of the marker
+                    options.position(latLng);
 
 
-                if (markerPoints.size() == 1) {
-                    options.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN));
-                    mMap.addMarker(options);
-                } else if (markerPoints.size() == 2) {
-                    options.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED));
-                    mMap.addMarker(options);
-                } else if (markerPoints.size() > 2) {
-                    options.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE));
+                    if (markerPoints.size() == 1) {
+                        options.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN));
+                        mMap.addMarker(options);
+                    } else if (markerPoints.size() == 2) {
+                        options.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED));
+                        mMap.addMarker(options);
+                    } else if (markerPoints.size() > 2) {
+                        options.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE));
+                        mMap.addMarker(options);
 //                    options.title("Places of interest");
+
+//                    String[] latLngString = latLng.toString().replace("lat/lng: ", "").replace("(", "").replace(")", "").split(",");
+//                    Log.d("BORIS latlngstring: ", latLngString.toString());
+//                    double latitude = Double.parseDouble(latLngString[0]);
+//                    double longitude = Double.parseDouble(latLngString[1]);
+//
+//                    addProximityAlert(latitude, longitude);
+//
+//                    //dialog stuff
+//                    final Dialog dialog = new Dialog(context);
+//                    dialog.setContentView(R.layout.dialog_location);
+//                    dialog.setTitle("Place of Interest");
+//
+//                    TextView dialogTextView = (TextView) dialog.findViewById(R.id.dialogTextView);
+//                    dialogTextView.setText("Enter place name:");
+//                    final EditText dialogEditText = (EditText) dialog.findViewById(R.id.dialogEditText);
+//                    dialogEditText.setEditableFactory(Editable.Factory.getInstance());
+//
+//                    Button dialogOKButton = (Button) dialog.findViewById(R.id.dialogOKButton);
+//                    dialogOKButton.setOnClickListener(new View.OnClickListener() {
+//                        @Override
+//                        public void onClick(View v) {
+//                            dialog.dismiss();
+//                            dialogTitleText = dialogEditText.getText().toString();
+//                            mMap.addMarker(options).setTitle(dialogTitleText);
+//                        }
+//                    });
+//                    dialog.show();
+                    }
+                }
+
+                //kontrola dodavanja POI
+                bAddPOI.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        if(bAddPOI.getText().equals(getString(R.string.bAddPoi))){
+                            isPOIMarker = true;
+                            bAddPOI.setText(getString(R.string.bAddPoiStop));
+                        }
+                        else if (bAddPOI.getText().equals(getString(R.string.bAddPoiStop))){
+                            isPOIMarker = false;
+                            bAddPOI.setText(getString(R.string.bAddPoi));
+                        }
+
+
+                    }
+                });
+
+                //dodavanje POI markera
+                if(isPOIMarker == true){
+
+                    POImarkers.add(latLng);
+                    final MarkerOptions optionsPOI = new MarkerOptions();
+                    optionsPOI.position(latLng);
+
+
+                    optionsPOI.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_YELLOW));
 
                     String[] latLngString = latLng.toString().replace("lat/lng: ", "").replace("(", "").replace(")", "").split(",");
                     Log.d("BORIS latlngstring: ", latLngString.toString());
@@ -285,10 +373,10 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback 
                     //dialog stuff
                     final Dialog dialog = new Dialog(context);
                     dialog.setContentView(R.layout.dialog_location);
-                    dialog.setTitle("Place of Interest");
+                    dialog.setTitle(getString(R.string.dialogTitle));
 
                     TextView dialogTextView = (TextView) dialog.findViewById(R.id.dialogTextView);
-                    dialogTextView.setText("Enter place name:");
+                    dialogTextView.setText(getString(R.string.dialogText));
                     final EditText dialogEditText = (EditText) dialog.findViewById(R.id.dialogEditText);
                     dialogEditText.setEditableFactory(Editable.Factory.getInstance());
 
@@ -298,25 +386,32 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback 
                         public void onClick(View v) {
                             dialog.dismiss();
                             dialogTitleText = dialogEditText.getText().toString();
-                            mMap.addMarker(options).setTitle(dialogTitleText);
+                            mMap.addMarker(optionsPOI).setTitle(dialogTitleText);
                         }
                     });
                     dialog.show();
                 }
 
-                // Checks, whether start and end locations are captured
-                if (markerPoints.size() >= 2) {
-                    LatLng origin = (LatLng) markerPoints.get(0);
-                    LatLng dest = (LatLng) markerPoints.get(1);
 
-                    // Getting URL to the Google Directions API
-                    String url = getDirectionsUrl(origin, dest);
+                bDrawRoute.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        // Checks, whether start and end locations are captured
+                        if (markerPoints.size() >= 2) {
+                            LatLng origin = (LatLng) markerPoints.get(0);
+                            LatLng dest = (LatLng) markerPoints.get(1);
 
-                    DownloadTask downloadTask = new DownloadTask();
+                            // Getting URL to the Google Directions API
+                            String url = getDirectionsUrl(origin, dest);
 
-                    // Start downloading json data from Google Directions API
-                    downloadTask.execute(url);
-                }
+                            DownloadTask downloadTask = new DownloadTask();
+
+                            // Start downloading json data from Google Directions API
+                            downloadTask.execute(url);
+                        }
+                    }
+                });
+
             }
 
             private void addProximityAlert(double latitude, double longitude) {
@@ -336,7 +431,7 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback 
                 myLocationManager.addProximityAlert(
                         latitude,
                         longitude,
-                        50, //radius u metrima
+                        100, //radius u metrima
                         1000, //vrijeme za proxyalert u milisec
                         proximityIntent
                 );
@@ -362,14 +457,18 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback 
 
     }
 
+    // Fetches data from url passed
     private class DownloadTask extends AsyncTask<String, Void, String> {
 
+        // Downloading data in non-ui thread
         @Override
         protected String doInBackground(String... url) {
 
+            // For storing data from web service
             String data = "";
 
             try {
+                // Fetching the data from web service
                 data = downloadUrl(url[0]);
             } catch (Exception e) {
                 Log.d("Background Task", e.toString());
@@ -377,13 +476,15 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback 
             return data;
         }
 
+        // Executes in UI thread, after the execution of
+        // doInBackground()
         @Override
         protected void onPostExecute(String result) {
             super.onPostExecute(result);
 
             ParserTask parserTask = new ParserTask();
 
-
+            // Invokes the thread for parsing the JSON data
             parserTask.execute(result);
 
         }
@@ -413,6 +514,7 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback 
             return routes;
         }
 
+        // Executes in UI thread, after the parsing process
         @Override
         protected void onPostExecute(List<List<HashMap<String, String>>> result) {
             ArrayList points = null;
@@ -440,7 +542,7 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback 
                 }
 
                 lineOptions.addAll(points);
-                lineOptions.width(10);
+                lineOptions.width(5);
                 lineOptions.color(Color.RED);
                 lineOptions.geodesic(true);
 
@@ -451,7 +553,7 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback 
                 return;
             }
             else {
-// Drawing polyline in the Google Map for the i-th route
+            // Drawing polyline in the Google Map for the i-th route
                 mMap.addPolyline(lineOptions);
             }
         }
@@ -468,8 +570,19 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback 
         // Sensor enabled
         String sensor = "sensor=false";
         String mode = "mode=walking";
+
+        //Waypoints
+        String waypoints = "";
+        for(int i = 2; i < markerPoints.size(); i++){
+            LatLng latLng = (LatLng) markerPoints.get(i);
+            if(i == 2) {
+                waypoints = "waypoints=";
+            }
+            waypoints += latLng.latitude + "," + latLng.longitude + "|";
+        }
+
         // Building the parameters to the web service
-        String parameters = str_origin + "&" + str_dest + "&" + sensor + "&" + mode;
+        String parameters = str_origin + "&" + waypoints + "&" + str_dest + "&" + sensor + "&" + mode;
 
         // Output format
         String output = "json";
@@ -491,10 +604,13 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback 
         try {
             URL url = new URL(strUrl);
 
+            // Creating an http connection to communicate with url
             urlConnection = (HttpURLConnection) url.openConnection();
 
+            // Connecting to url
             urlConnection.connect();
 
+            // Reading data from url
             iStream = urlConnection.getInputStream();
 
             BufferedReader br = new BufferedReader(new InputStreamReader(iStream));

@@ -20,12 +20,13 @@ import static android.content.Context.NOTIFICATION_SERVICE;
 
 public class ProximityIntentReceiver extends BroadcastReceiver {
 
-    private static final int NOTIFICATION_ID = 1000;
+//    private static final int NOTIFICATION_ID = 1000;
 
     @Override
     public void onReceive(Context context, Intent intent) {
         String key = LocationManager.KEY_PROXIMITY_ENTERING;
         Boolean entering = intent.getBooleanExtra(key, false);
+
 
         if (entering) {
             Log.d(getClass().getSimpleName(), "entering");
@@ -39,9 +40,9 @@ public class ProximityIntentReceiver extends BroadcastReceiver {
 // with api level 15 and lower
         NotificationCompat.Builder notificationBuilder = new NotificationCompat.Builder(context);
         notificationBuilder.setAutoCancel(true)
-                .setContentTitle("Alert")
-                .setContentText("Near your point of interest!")
-                .setSmallIcon(android.R.drawable.ic_dialog_alert)
+                .setContentTitle(MapActivity.alertTitle)
+                .setContentText(MapActivity.alertText)
+                .setSmallIcon(android.R.drawable.ic_dialog_info)
                 .setContentIntent(notificationPendingIntent)
                 .setLights(Color.BLUE, 2000, 1000)
                 .setVibrate(new long[]{1000,1000,1000,1000,1000})

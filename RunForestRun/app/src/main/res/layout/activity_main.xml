@@ -10,13 +10,13 @@
             android:id="@+id/bMapActivity"
             android:layout_width="match_parent"
             android:layout_height="100dp"
-            android:text="START RUNNING"
+            android:text="@string/map_activity"
             android:layout_marginTop="50dp"/>
 
         <Button
             android:id="@+id/bDatabaseActivity"
             android:layout_width="match_parent"
             android:layout_height="100dp"
-            android:text="MY TIMES"/>
+            android:text="@string/times_activity"/>
 
 </LinearLayout>
