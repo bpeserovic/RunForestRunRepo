@@ -1,21 +1,28 @@
 package com.etfos.bpeserovic.runforestrun;
 
+import android.app.Activity;
 import android.app.Dialog;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.BroadcastReceiver;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
+import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.Path;
 import android.location.Criteria;
 import android.location.Location;
 import android.location.LocationManager;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Handler;
+import android.provider.MediaStore;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.FragmentActivity;
 import android.text.Editable;
@@ -24,10 +31,13 @@ import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -36,7 +46,9 @@ import java.net.URL;
 import java.sql.Time;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -65,28 +77,33 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback 
 //    NumberFormat nf = NumberFormat.getNumberInstance(Locale.GERMAN);
 //    DecimalFormat df = (DecimalFormat)nf;
 
-    private static final String PROX_ALERT_INTENT = "com.etfos.bpeserovic.runforestrun.ProximityAlert";
+    //notifikacija
+//    private static final String PROX_ALERT_INTENT = "com.etfos.bpeserovic.runforestrun.ProximityAlert";
     public static String alertTitle;
     public static String alertText;
+    private static final float RADIUS = 100; //radijus u metrima
+    private static final long EXPIRATION = -1; //istek notifikacije u ms, -1 za beskonačno
+    private int alertID = 0;
+    private static final String PROXI_INTENT = "PROXI_INTENT";
 
+    //markeri
     ArrayList markerPoints = new ArrayList();
     ArrayList POImarkers = new ArrayList();
+
+    //google map
     private GoogleMap mMap;
 
     LocationManager myLocationManager;
     String provider;
     Criteria criteria;
-
-//    TimeDB timeDb = new TimeDB();
-    //public TimeDBHelper dbHelper = new TimeDBHelper(this);
-//    ArrayAdapter<Times> arrayAdapterMap = new ArrayAdapter<Times>(timeDb, android.R.layout.simple_list_item_1);
+    android.location.LocationListener mLocationListener;
+    Location mCurrentLocation;
 
     //opis za marker
     public String dialogTitleText;
 
     //provjerava je li user dodaje poi markere
     public boolean isPOIMarker = false;
-    Button bAddPOI;
 
     //Timer
     TextView mTime;
@@ -111,18 +128,44 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback 
         }
     };
 
+//    private void addProximityAlert(double latitude, double longitude) {
+////        Intent intent = new Intent(PROX_ALERT_INTENT);
+////        PendingIntent proximityIntent = PendingIntent.getBroadcast(getApplicationContext(), 0, intent, 0);
+//
+//        Intent intent = new Intent("com.etfos.bpeserovic.ENTERING_AREA");
+//        PendingIntent proximityIntent = PendingIntent.getBroadcast(getApplicationContext(), 10, intent, 0);
+//
+//        if (ActivityCompat.checkSelfPermission(getApplicationContext(), android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(getApplicationContext(), android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+//            // TODO: Consider calling
+//            //    ActivityCompat#requestPermissions
+//            // here to request the missing permissions, and then overriding
+//            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+//            //                                          int[] grantResults)
+//            // to handle the case where the user grants the permission. See the documentation
+//            // for ActivityCompat#requestPermissions for more details.
+//            return;
+//        }
+//        myLocationManager.addProximityAlert(
+//                latitude,
+//                longitude,
+//                100, //radius u metrima
+//                -1, //vrijeme za proxyalert u milisec
+//                proximityIntent
+//        );
+////        IntentFilter filter = new IntentFilter(PROX_ALERT_INTENT);
+////        this.registerReceiver(new ProximityIntentReceiver(), filter);
+//    }
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
-        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
-                .findFragmentById(R.id.mGoogleMap);
+        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.mGoogleMap);
         mapFragment.getMapAsync(this);
 
         //button za kontrolu koje markere dodajem
-//        bAddPOI.findViewById(R.id.mAddPOI);
         final Button bAddPOI = (Button) findViewById(R.id.mAddPOI);
         bAddPOI.setText(getString(R.string.bAddPoi));
 
@@ -133,9 +176,9 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback 
         alertText = res.getString(R.string.alertText);
 
         //location stuff
+        myLocationManager = (LocationManager) this.getSystemService(LOCATION_SERVICE);
         criteria = new Criteria();
         criteria.setAccuracy(Criteria.ACCURACY_FINE);
-        myLocationManager = (LocationManager) getSystemService(Service.LOCATION_SERVICE);
 //        getActivity().getSystemService(Service.LOCATION_SERVICE);
         provider = myLocationManager.getBestProvider(criteria, true);
 
@@ -150,9 +193,31 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback 
             return;
         }
 
-        //TODO request location updates (možda ne budem koristio)
-//        myLocationManager.requestLocationUpdates(provider, 1000, 1, new myLocationManager());
 
+        this.mLocationListener = new android.location.LocationListener() {
+            @Override
+            public void onLocationChanged(Location location) {
+                mCurrentLocation = location;
+            }
+
+            @Override
+            public void onStatusChanged(String provider, int status, Bundle extras) {
+
+            }
+
+            @Override
+            public void onProviderEnabled(String provider) {
+
+            }
+
+            @Override
+            public void onProviderDisabled(String provider) {
+
+            }
+        };
+
+
+        initializeReceiver();
 
 
         //timer stuff
@@ -176,8 +241,7 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback 
 
                     timerHandler.removeCallbacks(timerRunnable);
                     bStart.setText(getString(R.string.bStart));
-                }
-                else {
+                } else {
                     startTime = System.currentTimeMillis();
                     timerHandler.postDelayed(timerRunnable, 0);
                     bStart.setText(getString(R.string.bStartStop));
@@ -197,6 +261,24 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback 
                 bAddPOI.setText(getString(R.string.bAddPoi));
             }
         });
+
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            // TODO: Consider calling
+            //    ActivityCompat#requestPermissions
+            // here to request the missing permissions, and then overriding
+            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+            //                                          int[] grantResults)
+            // to handle the case where the user grants the permission. See the documentation
+            // for ActivityCompat#requestPermissions for more details.
+            return;
+        }
+        this.myLocationManager.requestLocationUpdates(provider, 500, 1, mLocationListener);
+        Log.d("BORIS ", "Started Location Tracking");
     }
 
     @Override
@@ -205,53 +287,11 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback 
         timerHandler.removeCallbacks(timerRunnable);
         Button bStart = (Button) findViewById(R.id.mStartButton);
         bStart.setText(getString(R.string.bStart));
+        if(mLocationListener != null){
+            myLocationManager.removeUpdates(this.mLocationListener);
+            Log.d("BORIS ", "Location tracking stopped");
+        }
     }
-
-
-
-    //// TODO: location listener android 
-//    public class myLocationListener implements android.location.LocationListener{
-//
-//        @Override
-//        public void onLocationChanged(Location location) {
-//            Location location = new Location("POINT_LOCATION");
-//            return location;
-//        }
-//
-//        @Override
-//        public void onStatusChanged(String provider, int status, Bundle extras) {
-//
-//        }
-//
-//        @Override
-//        public void onProviderEnabled(String provider) {
-//
-//        }
-//
-//        @Override
-//        public void onProviderDisabled(String provider) {
-//
-//        }
-//    }
-
-    //// TODO: Location listener google maps
-
-//    LocationListener mLocationListener = new LocationListener() {
-//
-//        @Override
-//        public void onLocationChanged(Location location) {
-//            onChange(location);
-//        }
-//    };
-//
-//    public void onChange(Location location) {
-//        String latlongString = "No location available";
-//        if (location != null) {
-//            latlongString = "Lat:" + location.getLatitude() + "\nLon:"
-//                    + location.getLongitude();
-//        }
-//        //tvLocation.setText(latlongString);
-//    }
 
     @Override
     public void onMapReady(GoogleMap googleMap) {
@@ -304,35 +344,6 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback 
                     } else if (markerPoints.size() > 2) {
                         options.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE));
                         mMap.addMarker(options);
-//                    options.title("Places of interest");
-
-//                    String[] latLngString = latLng.toString().replace("lat/lng: ", "").replace("(", "").replace(")", "").split(",");
-//                    Log.d("BORIS latlngstring: ", latLngString.toString());
-//                    double latitude = Double.parseDouble(latLngString[0]);
-//                    double longitude = Double.parseDouble(latLngString[1]);
-//
-//                    addProximityAlert(latitude, longitude);
-//
-//                    //dialog stuff
-//                    final Dialog dialog = new Dialog(context);
-//                    dialog.setContentView(R.layout.dialog_location);
-//                    dialog.setTitle("Place of Interest");
-//
-//                    TextView dialogTextView = (TextView) dialog.findViewById(R.id.dialogTextView);
-//                    dialogTextView.setText("Enter place name:");
-//                    final EditText dialogEditText = (EditText) dialog.findViewById(R.id.dialogEditText);
-//                    dialogEditText.setEditableFactory(Editable.Factory.getInstance());
-//
-//                    Button dialogOKButton = (Button) dialog.findViewById(R.id.dialogOKButton);
-//                    dialogOKButton.setOnClickListener(new View.OnClickListener() {
-//                        @Override
-//                        public void onClick(View v) {
-//                            dialog.dismiss();
-//                            dialogTitleText = dialogEditText.getText().toString();
-//                            mMap.addMarker(options).setTitle(dialogTitleText);
-//                        }
-//                    });
-//                    dialog.show();
                     }
                 }
 
@@ -357,17 +368,22 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback 
                 if(isPOIMarker == true){
 
                     POImarkers.add(latLng);
+                    Log.d("BORIS poimarker", POImarkers.toString());
                     final MarkerOptions optionsPOI = new MarkerOptions();
                     optionsPOI.position(latLng);
-
 
                     optionsPOI.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_YELLOW));
 
                     String[] latLngString = latLng.toString().replace("lat/lng: ", "").replace("(", "").replace(")", "").split(",");
                     Log.d("BORIS latlngstring: ", latLngString.toString());
-                    double latitude = Double.parseDouble(latLngString[0]);
-                    double longitude = Double.parseDouble(latLngString[1]);
+                    final double latitude = Double.parseDouble(latLngString[0]);
+                    final double longitude = Double.parseDouble(latLngString[1]);
+                    String latString = String.valueOf(latitude);
+                    String lngString = String.valueOf(longitude);
+                    Log.d("BORIS marker latitude", latString);
+                    Log.d("BORIS marker longitude", lngString);
 
+                    //adding proximity alert for marker
                     addProximityAlert(latitude, longitude);
 
                     //dialog stuff
@@ -393,6 +409,7 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback 
                 }
 
 
+                //crtanje rute
                 bDrawRoute.setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View v) {
@@ -414,30 +431,30 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback 
 
             }
 
-            private void addProximityAlert(double latitude, double longitude) {
-                Intent intent = new Intent(PROX_ALERT_INTENT);
-                PendingIntent proximityIntent = PendingIntent.getBroadcast(getApplicationContext(), 0, intent, 0);
-
-                if (ActivityCompat.checkSelfPermission(getApplicationContext(), android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(getApplicationContext(), android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                    // TODO: Consider calling
-                    //    ActivityCompat#requestPermissions
-                    // here to request the missing permissions, and then overriding
-                    //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                    //                                          int[] grantResults)
-                    // to handle the case where the user grants the permission. See the documentation
-                    // for ActivityCompat#requestPermissions for more details.
-                    return;
-                }
-                myLocationManager.addProximityAlert(
-                        latitude,
-                        longitude,
-                        100, //radius u metrima
-                        1000, //vrijeme za proxyalert u milisec
-                        proximityIntent
-                );
-                IntentFilter filter = new IntentFilter(PROX_ALERT_INTENT);
-                registerReceiver(new ProximityIntentReceiver(), filter);
-            }
+//            private void addProximityAlert(double latitude, double longitude) {
+//                Intent intent = new Intent(PROX_ALERT_INTENT);
+//                PendingIntent proximityIntent = PendingIntent.getBroadcast(getApplicationContext(), 0, intent, 0);
+//
+//                if (ActivityCompat.checkSelfPermission(getApplicationContext(), android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(getApplicationContext(), android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+//                    // TODO: Consider calling
+//                    //    ActivityCompat#requestPermissions
+//                    // here to request the missing permissions, and then overriding
+//                    //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+//                    //                                          int[] grantResults)
+//                    // to handle the case where the user grants the permission. See the documentation
+//                    // for ActivityCompat#requestPermissions for more details.
+//                    return;
+//                }
+//                myLocationManager.addProximityAlert(
+//                        latitude,
+//                        longitude,
+//                        100, //radius u metrima
+//                        1000, //vrijeme za proxyalert u milisec
+//                        proximityIntent
+//                );
+//                IntentFilter filter = new IntentFilter(PROX_ALERT_INTENT);
+//                registerReceiver(new ProximityIntentReceiver(), filter);
+//            }
         });
 
         if (ActivityCompat.checkSelfPermission(this,
@@ -454,7 +471,47 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback 
             return;
         }
         mMap.setMyLocationEnabled(true);
+    }
 
+
+    private void addProximityAlert(double latitude, double longitude) {
+
+        Bundle extras = new Bundle();
+        extras.putInt("id", alertID);
+
+        Intent intent = new Intent(PROXI_INTENT);
+        intent.putExtra(PROXI_INTENT, extras);
+
+        PendingIntent proximityIntent = PendingIntent.getBroadcast(MapActivity.this, alertID, intent, PendingIntent.FLAG_CANCEL_CURRENT);
+
+        if (latitude != 0 && longitude != 0) {
+
+            if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                // TODO: Consider calling
+                //    ActivityCompat#requestPermissions
+                // here to request the missing permissions, and then overriding
+                //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                //                                          int[] grantResults)
+                // to handle the case where the user grants the permission. See the documentation
+                // for ActivityCompat#requestPermissions for more details.
+                return;
+
+            }
+            myLocationManager.addProximityAlert(
+                    latitude,
+                    longitude,
+                    RADIUS,
+                    EXPIRATION,
+                    proximityIntent
+            );
+            alertID++;
+        }
+
+    }
+
+    private void initializeReceiver(){
+        IntentFilter filter = new IntentFilter(PROXI_INTENT);
+        registerReceiver(new ProximityIntentReceiver(), filter);
     }
 
     // Fetches data from url passed
